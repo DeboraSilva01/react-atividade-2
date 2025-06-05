@@ -1,118 +1,102 @@
+const express = require('express');
+const cors = require('cors');
+const sqlite3 = require('sqlite3').verbose();
 
-// Importação dos módulos necessários
-const express = require('express'); // Framework para criar o servidor HTTP
-const cors = require('cors'); // Middleware para habilitar requisições de diferentes origens (Cross-Origin Resource Sharing)
-const sqlite3 = require('sqlite3').verbose(); // Driver para interagir com o banco de dados SQLite
-
-// Inicializa a aplicação Express
 const app = express();
-// Define a porta do servidor. Usa a variável de ambiente PORT ou 3000 como padrão.
 const port = process.env.PORT || 3000;
 
 // Middlewares
-app.use(cors()); // Habilita o CORS para todas as rotas
-app.use(express.json()); // Permite que o servidor entenda requisições com corpo no formato JSON
+app.use(cors());
+app.use(express.json());
 
-// Conecta ou cria o arquivo do banco de dados SQLite
-// Se o arquivo 'bancodedados.db' não existir, ele será criado.
-const db = new sqlite3.Database('./bancodedados.db', (err) => { // Usar './' para caminho relativo é uma boa prática
-if (err) {
-console.error("Erro ao conectar ao banco de dados:", err.message);
-} else {
-console.log("Conectado ao banco de dados SQLite.");
-// Cria a tabela 'Alunos' se ela ainda não existir
-db.run(`CREATE TABLE IF NOT EXISTS Alunos (
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-nome TEXT NOT NULL,
-email TEXT NOT NULL UNIQUE,
-curso TEXT
-)`, (err) => {
-if (err) {
-console.error("Erro ao criar tabela:", err.message);
-} else {
-console.log("Tabela 'Alunos' verificada/criada com sucesso.");
-}
-});
-}
+// Conexão com banco SQLite
+const db = new sqlite3.Database('./banco.db', (err) => {
+  if (err) {
+    console.error("Erro ao conectar:", err.message);
+  } else {
+    console.log("Conectado ao SQLite.");
+   db.run(`CREATE TABLE IF NOT EXISTS Alunos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nome TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  curso TEXT,
+  matricula TEXT NOT NULL,
+  status TEXT NOT NULL
+)`, (err) => {  
+      if (err) {
+        console.error("Erro ao criar tabela:", err.message);
+      } else {
+        console.log("Tabela Alunos criada ou já existe.");
+      }
+    });
+  }
 });
 
-// --- ROTAS DA API ---
-// Rota para LISTAR todos os alunos (Método GET)
+// [GET] Listar alunos
 app.get('/alunos', (req, res) => {
-db.all('SELECT * FROM Alunos ORDER BY nome', [], (err, rows) => {
-if (err) {
-res.status(500).json({ error: "Erro ao buscar alunos: " + err.message });
-return;
-}
-res.json(rows);
-});
+  db.all('SELECT * FROM Alunos ORDER BY nome', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
 });
 
-// Rota para CADASTRAR um novo aluno (Método POST)
+// [POST] Adicionar aluno
 app.post('/alunos', (req, res) => {
-const { nome, email, curso } = req.body;
-if (!nome) return res.status(400).json({ error: 'O campo "nome" é obrigatório.' });
-if (!email) return res.status(400).json({ error: 'O campo "email" é obrigatório.' });
-const sql = 'INSERT INTO Alunos (nome, email, curso) VALUES (?, ?, ?)';
-db.run(sql, [nome, email, curso], function (err) {
-if (err) {
-if (err.message.includes('UNIQUE constraint failed')) {
-return res.status(400).json({ error: 'Este email já está cadastrado.' });
-}
-return res.status(500).json({ error: "Erro ao cadastrar aluno: " + err.message });
-}
-res.status(201).json({ id: this.lastID, nome, email, curso });
-});
+  const { nome, email, curso, matricula, status } = req.body;
+
+  if (!nome || !email || !matricula || !status) {
+    return res.status(400).json({ error: 'Nome, email, matrícula e status são obrigatórios.' });
+  }
+
+  const sql = `INSERT INTO Alunos (nome, email, curso, matricula, status) VALUES (?, ?, ?, ?, ?)`;
+  db.run(sql, [nome, email, curso, matricula, status], function (err) {
+    if (err) {
+      if (err.message.includes('UNIQUE')) {
+        return res.status(400).json({ error: 'Este email já está cadastrado.' });
+      }
+      return res.status(500).json({ error: err.message });
+    }
+    res.status(201).json({ id: this.lastID, nome, email, curso, matricula, status });
+  });
 });
 
-// Rota para DELETAR um aluno pelo ID (Método DELETE)
+// [DELETE] Remover aluno
 app.delete('/alunos/:id', (req, res) => {
-const { id } = req.params;
-const sql = 'DELETE FROM Alunos WHERE id = ?';
-db.run(sql, [id], function (err) {
-if (err) {
-return res.status(500).json({ error: "Erro ao deletar aluno: " + err.message });
-}
-if (this.changes === 0) {
-return res.status(404).json({ error: 'Aluno não encontrado.' });
-}
-res.json({ message: 'Aluno removido com sucesso!' });
-});
+  const { id } = req.params;
+  db.run('DELETE FROM Alunos WHERE id = ?', [id], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    if (this.changes === 0) return res.status(404).json({ error: 'Aluno não encontrado.' });
+    res.json({ message: 'Aluno removido com sucesso!' });
+  });
 });
 
-// Rota para ATUALIZAR um aluno pelo ID (Método PUT) - Bônus
+// [PUT] Atualizar aluno
 app.put('/alunos/:id', (req, res) => {
-const { id } = req.params;
-const { nome, email, curso } = req.body;
-if (!nome && !email && !curso) {
-return res.status(400).json({ error: 'Forneça ao menos um campo para atualizar (nome, email, curso).' });
-}
-let fieldsToUpdate = [];
-let values = [];
-if (nome) { fieldsToUpdate.push("nome = ?"); values.push(nome); }
-if (email) { fieldsToUpdate.push("email = ?"); values.push(email); }
-if (curso) { fieldsToUpdate.push("curso = ?"); values.push(curso); }
-values.push(id);
+  const { id } = req.params;
+  const { nome, email, curso, matricula, status } = req.body;
 
-const sql = `UPDATE Alunos SET ${fieldsToUpdate.join(', ')} WHERE id = ?`;
-db.run(sql, values, function(err) {
-if (err) {
-if (err.message.includes('UNIQUE constraint failed')) {
-return res.status(400).json({ error: 'Este email já está cadastrado para outro aluno.' });
-}
-return res.status(500).json({ error: "Erro ao atualizar aluno: " + err.message });
-}
-if (this.changes === 0) {
-return res.status(404).json({ error: 'Aluno não encontrado para atualização.' });
-}
-res.json({ message: 'Aluno atualizado com sucesso!', changes: this.changes });
-});
+  const campos = [];
+  const valores = [];
+
+  if (nome) { campos.push('nome = ?'); valores.push(nome); }
+  if (email) { campos.push('email = ?'); valores.push(email); }
+  if (curso) { campos.push('curso = ?'); valores.push(curso); }
+  if (matricula) { campos.push('matricula = ?'); valores.push(matricula); }
+  if (status) { campos.push('status = ?'); valores.push(status); }
+
+  if (campos.length === 0) return res.status(400).json({ error: 'Nenhum dado fornecido para atualização.' });
+
+  valores.push(id);
+  const sql = `UPDATE Alunos SET ${campos.join(', ')} WHERE id = ?`;
+
+  db.run(sql, valores, function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    if (this.changes === 0) return res.status(404).json({ error: 'Aluno não encontrado.' });
+    res.json({ message: 'Aluno atualizado com sucesso.' });
+  });
 });
 
-// Inicia o servidor na porta definida
+// Inicia o servidor
 app.listen(port, () => {
-console.log(`Servidor backend rodando em http://localhost:${port}`);
+  console.log(`Servidor rodando em http://localhost:${port}`);
 });
-
-
-
