@@ -39,15 +39,17 @@ form {
   margin-bottom: 20px;
 }
 
-/* Inputs do formulário ocupam 45% do espaço, responsivos */
+/* Inputs do formulário  */
 form input {
   flex: 1 1 45%;
+  background-color: #ddd;
+  color: black;
   padding: 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
 }
 
-/* Botão do formulário ocupa 100% da largura */
+/* Botão do formulário */
 form button {
   flex: 1 1 100%;
   padding: 10px;
@@ -64,32 +66,32 @@ form button:hover {
   background-color: #238070;
 }
 
-/* Estilo da tabela para listar alunos */
+/* Estilo da tabela dos alunos */
 table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 20px;
 }
 
-/* Células da tabela com padding e borda */
+/* th e td da tabela com padding e borda */
 th, td {
   padding: 12px;
   border: 1px solid #ddd;
   text-align: center;
 }
 
-/* Cabeçalho da tabela com fundo colorido */
+/* Cabeçalho da tabela */
 th {
   background-color: #2a9d8f;
   color: white;
 }
 
-/* Texto das células */
+/* Texto dos td */
 td {
   color: #333;
 }
 
-/* Botão de remover com cor vermelha */
+/* Botão de remover */
 .remover {
   background-color: #e63946;
   color: white;
